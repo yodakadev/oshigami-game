@@ -1,9 +1,9 @@
 {
   "private": true,
-  "name": "my-nextron-app",
-  "description": "My application description",
+  "name": "oshigami-tablet",
+  "description": "oshigami-tablet",
   "version": "1.0.0",
-  "author": "Ketan Patel <ktan.p.patel@gmail.com>",
+  "author": "Yuma Yamazaki",
   "main": "app/background.js",
   "scripts": {
     "dev": "nextron",

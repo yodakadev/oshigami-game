@@ -82,6 +82,16 @@ export default function HomePage() {
   // キーボード・ゲームパッド操作
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
+      // Fキーでフルスクリーン切り替え
+      if (e.key === 'f' || e.key === 'F') {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen()
+        } else {
+          document.exitFullscreen()
+        }
+        return
+      }
+
       // Enterキーでポーズ/再開
       if (e.key === 'Enter') {
         setIsPaused((prev) => !prev)

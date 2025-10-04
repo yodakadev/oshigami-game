@@ -31,25 +31,39 @@ export default function HomePage() {
   const [selectedChoice, setSelectedChoice] = useState(0)
   const [disabledChoices, setDisabledChoices] = useState<number[]>([])
   const [showResult, setShowResult] = useState<'correct' | 'incorrect' | null>(null)
+  const [nineKeyPressCount, setNineKeyPressCount] = useState(0)
+  const [isPaused, setIsPaused] = useState(false)
+  const [bgmAudio, setBgmAudio] = useState<HTMLAudioElement | null>(null)
 
   // BGM再生
   useEffect(() => {
-    let audio: HTMLAudioElement | null = null
-
-    if (gameState === 'quiz') {
-      audio = new Audio('/sound/play.mp3')
+    if (gameState === 'quiz' && !isPaused) {
+      const audio = new Audio('/sound/play.mp3')
       audio.loop = true
-      audio.volume = 0.25 // 音量を30%に設定
+      audio.volume = 0.25
       audio.play()
-    }
+      setBgmAudio(audio)
 
-    return () => {
-      if (audio) {
+      return () => {
         audio.pause()
         audio.currentTime = 0
+        setBgmAudio(null)
       }
+    } else if (bgmAudio) {
+      bgmAudio.pause()
+      bgmAudio.currentTime = 0
+      setBgmAudio(null)
     }
-  }, [gameState])
+  }, [gameState, isPaused])
+
+  // ポーズ時のBGM制御
+  useEffect(() => {
+    if (isPaused && bgmAudio) {
+      bgmAudio.pause()
+    } else if (!isPaused && bgmAudio && gameState === 'quiz') {
+      bgmAudio.play()
+    }
+  }, [isPaused])
 
   // 選択肢変更時の効果音
   useEffect(() => {
@@ -60,15 +74,49 @@ export default function HomePage() {
     }
   }, [selectedChoice])
 
+  // 9キー連打カウントのリセット（画面が変わったとき）
+  useEffect(() => {
+    setNineKeyPressCount(0)
+  }, [gameState])
+
   // キーボード・ゲームパッド操作
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (gameState === 'title' && e.key === 'Enter') {
+      // Enterキーでポーズ/再開
+      if (e.key === 'Enter') {
+        setIsPaused((prev) => !prev)
+        return
+      }
+
+      // 9キー連打チェック（全画面で有効）
+      if (e.key === '9') {
+        setNineKeyPressCount((prev) => {
+          const newCount = prev + 1
+          if (newCount >= 5) {
+            // 5回押されたらタイトルに戻る
+            setGameState('title')
+            setCurrentQuestion(0)
+            setCorrectAnswers(0)
+            setSelectedChoice(0)
+            setDisabledChoices([])
+            setIsPaused(false)
+            return 0
+          }
+          return newCount
+        })
+        return
+      }
+
+      // ポーズ中は他の操作を受け付けない
+      if (isPaused) return
+
+      if (gameState === 'title' && (e.key === 'a' || e.key === 'A')) {
         setGameState('quiz')
         return
       }
 
       if (gameState === 'quiz' && !showResult) {
+
         if (e.key === 'ArrowUp') {
           setSelectedChoice((prev) => {
             let newChoice = prev > 0 ? prev - 1 : 2
@@ -87,7 +135,7 @@ export default function HomePage() {
             }
             return newChoice
           })
-        } else if (e.key === 'Enter' || e.key === ' ') {
+        } else if (e.key === 'a' || e.key === 'A') {
           if (!disabledChoices.includes(selectedChoice)) {
             handleAnswer(selectedChoice)
           }
@@ -95,9 +143,58 @@ export default function HomePage() {
       }
     }
 
+    const handleGamepadInput = () => {
+      const gamepads = navigator.getGamepads()
+      for (const gamepad of gamepads) {
+        if (!gamepad) continue
+
+        // Aボタン（通常はボタン0）
+        if (gamepad.buttons[0]?.pressed) {
+          if (gameState === 'title') {
+            setGameState('quiz')
+          } else if (gameState === 'quiz' && !showResult && !disabledChoices.includes(selectedChoice)) {
+            handleAnswer(selectedChoice)
+          }
+        }
+
+        // 十字キー上（通常はボタン12）
+        if (gamepad.buttons[12]?.pressed) {
+          if (gameState === 'quiz' && !showResult) {
+            setSelectedChoice((prev) => {
+              let newChoice = prev > 0 ? prev - 1 : 2
+              while (disabledChoices.includes(newChoice)) {
+                newChoice = newChoice > 0 ? newChoice - 1 : 2
+                if (newChoice === prev) break
+              }
+              return newChoice
+            })
+          }
+        }
+
+        // 十字キー下（通常はボタン13）
+        if (gamepad.buttons[13]?.pressed) {
+          if (gameState === 'quiz' && !showResult) {
+            setSelectedChoice((prev) => {
+              let newChoice = prev < 2 ? prev + 1 : 0
+              while (disabledChoices.includes(newChoice)) {
+                newChoice = newChoice < 2 ? newChoice + 1 : 0
+                if (newChoice === prev) break
+              }
+              return newChoice
+            })
+          }
+        }
+      }
+    }
+
     window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [gameState, selectedChoice, disabledChoices, showResult])
+    const gamepadInterval = setInterval(handleGamepadInput, 100)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress)
+      clearInterval(gamepadInterval)
+    }
+  }, [gameState, selectedChoice, disabledChoices, showResult, isPaused])
 
   const handleAnswer = (choiceIndex: number) => {
     const isCorrect = choiceIndex === quizData[currentQuestion].answer
@@ -166,6 +263,18 @@ export default function HomePage() {
             fill
             style={{ objectFit: 'contain' }}
           />
+          {/* ポーズ画面（ブラックアウト） */}
+          {isPaused && (
+            <Box
+              position="absolute"
+              top="0"
+              left="0"
+              width="100%"
+              height="100%"
+              bg="black"
+              zIndex={20}
+            />
+          )}
         </Box>
       </React.Fragment>
     )
@@ -191,6 +300,18 @@ export default function HomePage() {
             fill
             style={{ objectFit: 'contain' }}
           />
+          {/* ポーズ画面（ブラックアウト） */}
+          {isPaused && (
+            <Box
+              position="absolute"
+              top="0"
+              left="0"
+              width="100%"
+              height="100%"
+              bg="black"
+              zIndex={20}
+            />
+          )}
         </Box>
       </React.Fragment>
     )
@@ -341,6 +462,19 @@ export default function HomePage() {
               height={300}
             />
           </Box>
+        )}
+
+        {/* ポーズ画面（ブラックアウト） */}
+        {isPaused && (
+          <Box
+            position="absolute"
+            top="0"
+            left="0"
+            width="100%"
+            height="100%"
+            bg="black"
+            zIndex={20}
+          />
         )}
       </Box>
     </React.Fragment>

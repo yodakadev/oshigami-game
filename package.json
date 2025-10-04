@@ -2,7 +2,7 @@
   "private": true,
   "name": "oshigami-tablet",
   "description": "oshigami-tablet",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Yuma Yamazaki",
   "main": "app/background.js",
   "scripts": {

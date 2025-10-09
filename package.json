@@ -1,8 +1,8 @@
 {
   "private": true,
-  "name": "oshigami-tablet",
-  "description": "oshigami-tablet",
-  "version": "1.0.1",
+  "name": "oshigami-game",
+  "description": "oshigami-game",
+  "version": "1.0.2",
   "author": "Yuma Yamazaki",
   "main": "app/background.js",
   "scripts": {

@@ -34,6 +34,7 @@ export default function HomePage() {
   const [nineKeyPressCount, setNineKeyPressCount] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [bgmAudio, setBgmAudio] = useState<HTMLAudioElement | null>(null)
+  const [isResetting, setIsResetting] = useState(false)
 
   // BGM再生
   useEffect(() => {
@@ -67,7 +68,7 @@ export default function HomePage() {
 
   // 選択肢変更時の効果音
   useEffect(() => {
-    if (gameState === 'quiz' && !showResult) {
+    if (gameState === 'quiz' && !showResult && !isResetting) {
       const audio = new Audio('/sound/select.wav')
       audio.volume = 0.5
       audio.play()
@@ -77,6 +78,20 @@ export default function HomePage() {
   // 9キー連打カウントのリセット（画面が変わったとき）
   useEffect(() => {
     setNineKeyPressCount(0)
+  }, [gameState])
+
+  // クリア効果音を再生
+  useEffect(() => {
+    if (gameState === 'clear') {
+      const audio = new Audio('/sound/clear.mp3')
+      audio.volume = 0.5
+      audio.play()
+
+      return () => {
+        audio.pause()
+        audio.currentTime = 0
+      }
+    }
   }, [gameState])
 
   // キーボード・ゲームパッド操作
@@ -237,19 +252,22 @@ export default function HomePage() {
       audio.play()
 
       // 不正解の場合
-      setShowResult('incorrect')
-      setDisabledChoices([...disabledChoices, choiceIndex])
+      setShowResult("incorrect");
 
-      // 1秒後に結果表示を消す
+      // 1秒後に1問目に戻る
       setTimeout(() => {
-        setShowResult(null)
-        // グレーアウトされていない次の選択肢に移動
-        let newChoice = selectedChoice
-        do {
-          newChoice = (newChoice + 1) % 3
-        } while (disabledChoices.includes(newChoice) || newChoice === choiceIndex)
-        setSelectedChoice(newChoice)
-      }, 1000)
+        setIsResetting(true);  // リセット中フラグをオン
+        setShowResult(null);
+        setCurrentQuestion(0); // 1問目に戻る
+        setCorrectAnswers(0); // 正解数もリセット
+        setSelectedChoice(0);
+        setDisabledChoices([]);
+
+        // リセット完了後にフラグをオフ
+        setTimeout(() => {
+          setIsResetting(false);
+        }, 100);
+      }, 1000);
     }
   }
 
